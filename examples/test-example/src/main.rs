@@ -17,15 +17,15 @@ use nrf52811_hal as hal;
 #[cfg(feature = "52832")]
 use nrf52832_hal as hal;
 
+#[cfg(feature = "52840")]
+use nrf52840_hal as hal;
+
 use defmt_rtt as _;
 use panic_probe as _;
-// #[cfg(feature = "52840")]
-use nrf52840_hal as hal;
+
 
 static COUNT: AtomicUsize = AtomicUsize::new(0);
 defmt::timestamp!("{=usize}", COUNT.fetch_add(1, Ordering::Relaxed));
-
-// use
 
 #[app(device = crate::hal::pac, dispatchers = [PWM0])]
 mod APP {
