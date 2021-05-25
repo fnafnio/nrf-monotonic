@@ -8,19 +8,17 @@ use rtic_monotonic::{
     embedded_time::{clock::Error, fraction::Fraction},
     Clock, Instant, Monotonic,
 };
-/// DWT and Systick combination implementing `embedded_time::Clock` and `rtic_monotonic::Monotonic`
+/// Monotonic Timer based on NRF Timer Instance
 ///
-/// The frequency of the DWT and SysTick is encoded using the parameter `FREQ`.
+/// The frequency is fixed at 1MHz
 pub struct NrfMonotonic<INSTANCE: Instance> {
     timer: INSTANCE,
     ovf: u64,
 }
 
 impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
-    /// Enable the DWT and provide a new `Monotonic` based on DWT and SysTick.
-    ///
-    /// Note that the `sysclk` parameter should come from e.g. the HAL's clock generation function
-    /// so the real speed and the declared speed can be compared.
+    /// Enable the Timer Instance and provide a new `Monotonic` based on this timer
+    /// This Monotonic timer is fixed at 1MHz
     pub fn new(instance: INSTANCE) -> Self {
         {
             // set up the peripheral
@@ -34,8 +32,8 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
 
             t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) })
         }
-        // We do not start the counter here, it is started in `reset`.
 
+        // We do not start the counter here, it is started in `reset`.
         NrfMonotonic {
             timer: instance,
             ovf: 0,
