@@ -1,11 +1,9 @@
-[![crates.io](https://img.shields.io/crates/v/dwt-systick-monotonic.svg)](https://crates.io/crates/dwt-systick-monotonic)
-[![crates.io](https://img.shields.io/crates/d/dwt-systick-monotonic.svg)](https://crates.io/crates/dwt-systick-monotonic)
 
-# `dwt-systick-monotonic`
+# `nrf-monotonic`
 
-> RTIC monotonic implementation using SysTick and DWT
+> RTIC monotonic implementation using NRF Timer peripherals
 
-# [Documentation](https://docs.rs/dwt-systick-monotonic)
+<!-- # [Documentation](https://docs.rs/dwt-systick-monotonic) -->
 
 # License
 
