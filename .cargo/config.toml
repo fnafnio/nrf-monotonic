@@ -1,0 +1,19 @@
+# [target.'cfg(all(target_arch = "arm", target_os = "none"))']
+[target.thumbv7em-none-eabihf]
+runner = "probe-run --chip nrf52840 --shorten-paths"
+# runner =  "probe-rs-debugger debug --chip nRF52840_xxAA --speed 8000  --protocol swd --connect-under-reset  --core-index 0 --flashing-enabled --reset-after-flashing --halt-after-reset --program-binary"
+
+rustflags = [
+  "-C",
+  "link-arg=--nmagic",
+  "-C",
+  "link-arg=-Tdefmt.x",
+  "-C",
+  "link-arg=-Tlink.x",
+  "-C",
+  "linker=flip-link",
+]
+
+[build]
+target = "thumbv7em-none-eabihf" # Cortex-M4F and Cortex-M7F (with FPU)
+# target = "thumbv6m-none-eabi" # Cortex-M4F and Cortex-M7F (with FPU)

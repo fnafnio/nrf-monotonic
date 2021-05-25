@@ -13,6 +13,7 @@ use rtic_monotonic::{
 /// The frequency of the DWT and SysTick is encoded using the parameter `FREQ`.
 pub struct NrfMonotonic<INSTANCE: Instance> {
     timer: INSTANCE,
+    ovf: u64,
 }
 
 impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
@@ -30,20 +31,55 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
             // 1MHz
             t0.prescaler.write(|w| unsafe { w.prescaler().bits(4) });
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
+
+            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) })
         }
         // We do not start the counter here, it is started in `reset`.
 
-        NrfMonotonic { timer: instance }
+        NrfMonotonic {
+            timer: instance,
+            ovf: 0,
+        }
+    }
+
+    fn is_overflow(&self) -> bool {
+        self.timer.as_timer0().events_compare[2]
+            .read()
+            .events_compare()
+            .bit()
+    }
+
+    fn is_compare_match(&self) -> bool {
+        self.timer.as_timer0().events_compare[0]
+            .read()
+            .events_compare()
+            .bit()
+    }
+
+    fn clear_overflow_flag(&self) {
+        self.timer.as_timer0().events_compare[0].write(|w| w);
+    }
+
+    fn clear_compare_match_flag(&self) {
+        self.timer.as_timer0().events_compare[2].write(|w| w);
     }
 }
 
 impl<INSTANCE: Instance> Clock for NrfMonotonic<INSTANCE> {
-    type T = u32;
+    type T = u64;
 
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 1);
+    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
 
     fn try_now(&self) -> Result<Instant<Self>, Error> {
-        Ok(Instant::new(self.timer.read_counter()))
+        let cnt = self.timer.read_counter();
+
+        let ovf = if self.is_overflow() {
+            0x1_0000_0000u64
+        } else {
+            0
+        };
+
+        Ok(Instant::new(cnt as u64 | ovf as u64))
     }
 }
 
@@ -55,6 +91,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             let t0 = self.timer.as_timer0();
             t0.tasks_stop.write(|w| w.tasks_stop().set_bit());
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
+            t0.intenset.write(|w| w.compare0().set().compare2().set());
             t0.tasks_start.write(|w| w.tasks_start().set_bit());
         }
     }
@@ -62,9 +99,8 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
     fn set_compare(&mut self, val: &Instant<Self>) {
         // The input `val` is in the timer, but the SysTick is a down-counter.
         // We need to convert into its domain.
-        let now: Instant<Self> = Instant::new(self.timer.read_counter());
-
-        let max = u32::MAX;
+        let now: Instant<Self> = self.try_now().unwrap(); // infallible
+        let max = u64::MAX;
 
         let dur = match val.checked_duration_since(&now) {
             None => 1, // In the past
@@ -73,14 +109,24 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             // "Setting SYST_RVR to zero has the effect of
             // disabling the SysTick counter independently
             // of the counter enable bit.", so the min is 1
-            Some(x) => max.min(*x.integer()).max(1),
+            Some(x) => max.min(*x.integer()).max(1u64),
         };
 
-        self.timer.as_timer0().cc[0].write(|w| unsafe { w.cc().bits(dur) });
+        self.timer.as_timer0().cc[0]
+            .write(|w| unsafe { w.cc().bits((dur & u32::MAX as u64) as u32) });
     }
 
     fn clear_compare_flag(&mut self) {
-        self.timer.timer_reset_event();
-        // NOOP with SysTick interrupt
+        if self.is_compare_match() {
+            self.clear_compare_match_flag();
+        }
+    }
+
+    fn on_interrupt(&mut self) {
+        // maybe this check can be left out?
+        if self.is_overflow() {
+            self.clear_overflow_flag();
+            self.ovf += 1 << 32;
+        }
     }
 }
