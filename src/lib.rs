@@ -43,7 +43,10 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
             // 1MHz
             t0.prescaler.write(|w| unsafe { w.prescaler().bits(4) });
             // clear timer on overflow match
+            t0.cc[0].reset();
+            t0.cc[1].reset();
             t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) });
+            t0.cc[3].reset();
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
         }
 
