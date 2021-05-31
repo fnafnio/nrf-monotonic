@@ -38,14 +38,13 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
         {
             // set up the peripheral
             let t0 = instance.as_timer0();
-            t0.bitmode.write(|w| w.bitmode()._32bit());
-            t0.events_compare[0].reset();
             t0.mode.write(|w| w.mode().timer());
+            t0.bitmode.write(|w| w.bitmode()._32bit());
             // 1MHz
             t0.prescaler.write(|w| unsafe { w.prescaler().bits(4) });
+            // clear timer on overflow match
+            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) });
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
-
-            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) })
         }
 
         // We do not start the counter here, it is started in `reset`.
@@ -100,10 +99,15 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
     const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
 
     unsafe fn reset(&mut self) {
+        self.ovf = 0;
         {
             let t0 = self.timer.as_timer0();
             t0.tasks_stop.write(|w| w.tasks_stop().set_bit());
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
+            t0.events_compare[0].reset();
+            t0.events_compare[1].reset();
+            t0.events_compare[2].reset();
+            t0.events_compare[3].reset();
             t0.intenset.write(|w| w.compare0().set().compare2().set());
             t0.tasks_start.write(|w| w.tasks_start().set_bit());
         }

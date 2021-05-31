@@ -8,9 +8,10 @@ edition = "2018"
 
 [dependencies]
 cortex-m = "0.7"
-cortex-m-rtic = "0.6.0-alpha.2"
+cortex-m-rtic = "0.6.0-alpha.4"
 defmt-rtt = "0.2.0"
 defmt = "0.2.2"
+embedded-time = "0.12.0"
 panic-probe = "0.2.0"
 nrf-monotonic = { version = "0.1.0", path = "../.." }
 
@@ -50,3 +51,38 @@ defmt-debug = []
 defmt-info = []
 defmt-warn = []
 defmt-error = []
+
+[profile.dev]
+codegen-units = 1
+debug = 2
+debug-assertions = true # <-
+incremental = false
+opt-level = 2 # <-
+overflow-checks = true # <-
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false # <-
+incremental = false
+lto = 'fat'
+opt-level = 's' # <-
+overflow-checks = false # <-
+
+# do not optimize proc-macro crates = faster builds from scratch
+[profile.dev.build-override]
+codegen-units = 8
+debug = true
+debug-assertions = false
+opt-level = 0
+overflow-checks = false
+
+[profile.release.build-override]
+codegen-units = 8
+debug = false
+debug-assertions = false
+opt-level = 0
+overflow-checks = false
+
+[patch.crates-io]
+cortex-m-rtic = { git = "https://github.com/rtic-rs/cortex-m-rtic" }

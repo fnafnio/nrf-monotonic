@@ -23,15 +23,20 @@ use nrf52840_hal as hal;
 use defmt_rtt as _;
 use panic_probe as _;
 
+defmt::timestamp!("{=u64:µs}", { get_time_from_rtic() });
 
-static COUNT: AtomicUsize = AtomicUsize::new(0);
-defmt::timestamp!("{=usize}", COUNT.fetch_add(1, Ordering::Relaxed));
+fn get_time_from_rtic() -> u64 {
+    use rtic::rtic_monotonic::Instant;
+    let t: Instant<_> = app::monotonics::now();
+    *t.duration_since_epoch().integer()
+}
 
 #[app(device = crate::hal::pac, dispatchers = [PWM0])]
-mod APP {
+mod app {
     use crate::hal;
+    use hal::clocks;
     use hal::gpio::{Level, Output, Pin, PushPull};
-    use hal::prelude::{OutputPin, StatefulOutputPin, ToggleableOutputPin};
+    use hal::prelude::{OutputPin, StatefulOutputPin};
     use nrf_monotonic::NrfMonotonic;
     use rtic::time::duration::{Milliseconds, Seconds};
 
@@ -41,20 +46,27 @@ mod APP {
     #[resources]
     struct Resources {
         #[task_local]
-        led: crate::hal::gpio::Pin<Output<PushPull>>,
+        led: Pin<Output<PushPull>>,
         #[task_local]
-        pin: crate::hal::gpio::Pin<Output<PushPull>>,
+        pin: Pin<Output<PushPull>>,
     }
 
     #[init]
     fn init(cx: init::Context) -> (init::LateResources, init::Monotonics) {
-        defmt::info!("init");
+
+        clocks::Clocks::new(unsafe { core::mem::transmute(()) })
+            .enable_ext_hfosc()
+            .set_lfclk_src_external(clocks::LfOscConfiguration::NoExternalNoBypass)
+            .start_lfclk();
 
         let mono = NrfMonotonic::new(cx.device.TIMER0);
+
+        
         let port0 = hal::gpio::p0::Parts::new(cx.device.P0);
         let led = port0.p0_13.into_push_pull_output(Level::High).degrade();
         let pin = port0.p0_31.into_push_pull_output(Level::High).degrade();
-
+        
+        defmt::info!("init");
         tttask::spawn_after(Seconds(1_u32)).unwrap();
         blink_led::spawn_after(Milliseconds(500_u32)).unwrap();
         (init::LateResources { led, pin }, init::Monotonics(mono))
