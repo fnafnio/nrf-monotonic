@@ -45,7 +45,7 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
             // clear timer on overflow match
             t0.cc[0].reset();
             t0.cc[1].reset();
-            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) });
+            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) }); // so we have an explicit overflow
             t0.cc[3].reset();
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
         }
@@ -88,13 +88,7 @@ impl<INSTANCE: Instance> Clock for NrfMonotonic<INSTANCE> {
     fn try_now(&self) -> Result<Instant<Self>, Error> {
         let cnt = self.timer.read_counter();
 
-        let ovf = if self.is_overflow() {
-            0x1_0000_0000u64
-        } else {
-            0
-        };
-
-        Ok(Instant::new(cnt as u64 | ovf as u64))
+        Ok(Instant::new(cnt as u64 | self.ovf))
     }
 }
 
@@ -146,7 +140,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         // maybe this check can be left out?
         if self.is_overflow() {
             self.clear_overflow_flag();
-            self.ovf += 1 << 32;
+            self.ovf += 0x1_0000_0000u64;
         }
     }
 }

@@ -1,7 +1,6 @@
 #![no_main]
 #![no_std]
 
-use core::sync::atomic::{AtomicUsize, Ordering};
 
 use rtic::app;
 
@@ -53,7 +52,6 @@ mod app {
 
     #[init]
     fn init(cx: init::Context) -> (init::LateResources, init::Monotonics) {
-
         clocks::Clocks::new(unsafe { core::mem::transmute(()) })
             .enable_ext_hfosc()
             .set_lfclk_src_external(clocks::LfOscConfiguration::NoExternalNoBypass)
@@ -61,11 +59,10 @@ mod app {
 
         let mono = NrfMonotonic::new(cx.device.TIMER0);
 
-        
         let port0 = hal::gpio::p0::Parts::new(cx.device.P0);
         let led = port0.p0_13.into_push_pull_output(Level::High).degrade();
         let pin = port0.p0_31.into_push_pull_output(Level::High).degrade();
-        
+
         defmt::info!("init");
         tttask::spawn_after(Seconds(1_u32)).unwrap();
         blink_led::spawn_after(Milliseconds(500_u32)).unwrap();
