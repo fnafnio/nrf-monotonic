@@ -1,7 +1,6 @@
 #![no_main]
 #![no_std]
 
-
 use rtic::app;
 
 #[cfg(feature = "51")]
@@ -63,7 +62,7 @@ mod app {
         let led = port0.p0_13.into_push_pull_output(Level::High).degrade();
         let pin = port0.p0_31.into_push_pull_output(Level::High).degrade();
 
-        defmt::info!("init");
+        // defmt::info!("init");
         tttask::spawn_after(Seconds(1_u32)).unwrap();
         blink_led::spawn_after(Milliseconds(500_u32)).unwrap();
         (init::LateResources { led, pin }, init::Monotonics(mono))

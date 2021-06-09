@@ -16,19 +16,19 @@ panic-probe = "0.2.0"
 nrf-monotonic = { version = "0.1.0", path = "../.." }
 
 [dependencies.nrf52810-hal]
-version = "0.12.1"
+version = "0.12.2"
 optional = true
 [dependencies.nrf52811-hal]
-version = "0.12.1"
+version = "0.12.2"
 optional = true
 [dependencies.nrf52832-hal]
-version = "0.12.1"
+version = "0.12.2"
 optional = true
 [dependencies.nrf52833-hal]
-version = "0.12.1"
+version = "0.12.2"
 optional = true
 [dependencies.nrf52840-hal]
-version = "0.12.1"
+version = "0.12.2"
 optional = true
 
 
