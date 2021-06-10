@@ -2,6 +2,8 @@
 
 #![no_std]
 
+use core::sync::atomic::{compiler_fence, Ordering};
+
 #[cfg(feature = "51")]
 use nrf51_hal as hal;
 
@@ -34,9 +36,9 @@ pub struct NrfMonotonic<INSTANCE: Instance> {
 impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
     /// Enable the Timer Instance and provide a new `Monotonic` based on this timer
     /// This Monotonic timer is fixed at 1MHz
-    const FLAG_COMPARE: usize = 3;
-    // const FLAG_NOW: usize = 1;
-    const FLAG_OVERFLOW: usize = 2;
+    const CC_COMPARE: usize = 0;
+    const CC_NOW: usize = 1;
+    const CC_OVERFLOW: usize = 2;
     pub fn new(instance: INSTANCE) -> Self {
         {
             // set up the peripheral
@@ -45,15 +47,9 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
             t0.bitmode.write(|w| w.bitmode()._32bit());
             // 1MHz
             t0.prescaler.write(|w| unsafe { w.prescaler().bits(4) });
-            // clear timer on overflow match
-            t0.cc[0].reset();
-            t0.cc[1].reset();
-            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) }); // so we have an explicit overflow
-            t0.cc[3].reset();
-
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
         }
-
+        defmt::info!("nrf-monotonic instance created and configured");
         // We do not start the counter here, it is started in `reset`.
         NrfMonotonic {
             timer: instance,
@@ -62,25 +58,27 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
     }
 
     fn is_overflow(&self) -> bool {
-        self.timer.as_timer0().events_compare[Self::FLAG_OVERFLOW]
+        self.timer.as_timer0().events_compare[Self::CC_OVERFLOW]
             .read()
             .events_compare()
             .bit()
     }
 
     fn is_compare_match(&self) -> bool {
-        self.timer.as_timer0().events_compare[Self::FLAG_COMPARE]
+        self.timer.as_timer0().events_compare[Self::CC_COMPARE]
             .read()
             .events_compare()
             .bit()
     }
 
     fn clear_overflow_flag(&self) {
-        self.timer.as_timer0().events_compare[Self::FLAG_OVERFLOW].write(|w| w);
+        self.timer.as_timer0().events_compare[Self::CC_OVERFLOW]
+            .write(|w| w.events_compare().clear_bit());
     }
 
     fn clear_compare_match_flag(&self) {
-        self.timer.as_timer0().events_compare[Self::FLAG_COMPARE].write(|w| w);
+        self.timer.as_timer0().events_compare[Self::CC_COMPARE]
+            .write(|w| w.events_compare().clear_bit());
     }
 }
 
@@ -90,8 +88,13 @@ impl<INSTANCE: Instance> Clock for NrfMonotonic<INSTANCE> {
     const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
 
     fn try_now(&self) -> Result<Instant<Self>, Error> {
-        let cnt = self.timer.read_counter();
-
+        let cnt = {
+            let t0 = self.timer.as_timer0();
+            t0.tasks_capture[Self::CC_NOW].write(|w| w.tasks_capture().set_bit());
+            compiler_fence(Ordering::SeqCst); // is this even needed
+            t0.cc[Self::CC_NOW].read().bits()
+        };
+        defmt::trace!("Clock::try_now={}", cnt);
         Ok(Instant::new(cnt as u64 | self.ovf))
     }
 }
@@ -105,41 +108,37 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             let t0 = self.timer.as_timer0();
             t0.tasks_stop.write(|w| w.tasks_stop().set_bit());
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
-            t0.events_compare[0].reset();
-            t0.events_compare[1].reset();
-            t0.events_compare[2].reset();
-            t0.events_compare[3].reset();
-            t0.intenset.write(|w| {
-                w.compare0()
-                    .set()
-                    .compare1()
-                    .set()
-                    .compare2()
-                    .set()
-                    .compare3()
-                    .set()
-            });
+
+            // clear events
+            t0.events_compare[0].write(|w| w.events_compare().clear_bit());
+            t0.events_compare[1].write(|w| w.events_compare().clear_bit());
+            t0.events_compare[2].write(|w| w.events_compare().clear_bit());
+            t0.events_compare[3].write(|w| w.events_compare().clear_bit());
+
+            // prepare compare registers
+            t0.cc[0].reset();
+            t0.cc[1].reset();
+            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) }); // so we have an explicit overflow
+            t0.cc[3].reset();
+
+            // disable unneeded interrupts
+            t0.intenclr
+                .write(|w| w.compare1().set_bit().compare3().set_bit());
+
+            // enable copmare match and overflow interrupts
+            t0.intenset
+                .write(|w| w.compare0().set_bit().compare2().set_bit());
+
+            // start the timer
             t0.tasks_start.write(|w| w.tasks_start().set_bit());
         }
-        // self.timer.enable_interrupt()
+        defmt::info!("nrf-monotonic reset and started");
     }
 
     fn set_compare(&mut self, val: &Instant<Self>) {
-        // The input `val` is in the timer, but the SysTick is a down-counter.
-        // We need to convert into its domain.
-        let now: Instant<Self> = self.try_now().unwrap(); // infallible
-        let max = u32::MAX as u64;
+        let dur = *val.duration_since_epoch().integer();
 
-        let dur = match val.checked_duration_since(&now) {
-            None => 1, // In the past
-
-            // ARM Architecture Reference Manual says:
-            // "Setting SYST_RVR to zero has the effect of
-            // disabling the SysTick counter independently
-            // of the counter enable bit.", so the min is 1
-            Some(x) => max.min(*x.integer()).max(1u64),
-        };
-
+        defmt::trace!("Set Compare to {}", dur);
         self.timer.as_timer0().cc[0]
             .write(|w| unsafe { w.cc().bits((dur & u32::MAX as u64) as u32) });
     }
@@ -147,6 +146,8 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
     fn clear_compare_flag(&mut self) {
         if self.is_compare_match() {
             self.clear_compare_match_flag();
+            self.timer.as_timer0().cc[0].reset();
+            defmt::debug!("Compare flag cleared");
         }
     }
 
@@ -155,6 +156,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         if self.is_overflow() {
             self.clear_overflow_flag();
             self.ovf += 0x1_0000_0000u64;
+            defmt::debug!("Overflow, flag: {:x}", self.ovf);
         }
     }
 }

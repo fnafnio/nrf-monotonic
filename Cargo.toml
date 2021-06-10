@@ -13,13 +13,15 @@ edition = "2018"
 
 [lib]
 name = "nrf_monotonic"
-defmt = {version = "0.2.2", optional = true}
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 cortex-m = "0.7.2"
 rtic-monotonic = "0.1.0-alpha.1"
 
+[dependencies.defmt]
+version = "0.2.2"
+optional = true
 
 [dependencies.nrf52810-hal]
 version = "0.12.2"
@@ -49,7 +51,9 @@ optional = true
 52833 = ["nrf52833-hal"]
 52840 = ["nrf52840-hal"]
 
-default = ["52840", "defmt-debug"]
+defmt-impl = ["defmt"]
+
+default = ["52840", "defmt-impl", "defmt-debug"]
 
 # do NOT modify these features
 defmt-default = []

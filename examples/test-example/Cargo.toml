@@ -13,7 +13,7 @@ defmt-rtt = "0.2.0"
 defmt = "0.2.2"
 embedded-time = "0.12.0"
 panic-probe = "0.2.0"
-nrf-monotonic = { version = "0.1.0", path = "../.." }
+nrf-monotonic = { version = "0.1.0", path = "../..", features = ["52840", "defmt-impl", "defmt-debug"] }
 
 [dependencies.nrf52810-hal]
 version = "0.12.2"
@@ -42,7 +42,7 @@ optional = true
 
 
 # set logging levels here
-default = ["defmt-debug", "52840"] # "dependency-a/defmt-trace",
+default = ["defmt-info", "52840", "nrf-monotonic/defmt-debug"] # "dependency-a/defmt-trace",
 
 # do NOT modify these features
 defmt-default = []
