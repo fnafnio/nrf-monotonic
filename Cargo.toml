@@ -53,8 +53,6 @@ optional = true
 
 defmt-impl = ["defmt"]
 
-default = ["52840", "defmt-impl", "defmt-debug"]
-
 # do NOT modify these features
 defmt-default = []
 defmt-trace = []

@@ -25,6 +25,10 @@ use rtic_monotonic::{
     embedded_time::{clock::Error, fraction::Fraction},
     Clock, Instant, Monotonic,
 };
+
+mod fmt_helpers;
+use fmt_helpers::*;
+
 /// Monotonic Timer based on NRF Timer Instance
 ///
 /// The frequency is fixed at 1MHz
@@ -49,7 +53,7 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
             t0.prescaler.write(|w| unsafe { w.prescaler().bits(4) });
             t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
         }
-        defmt::info!("nrf-monotonic instance created and configured");
+        info!("nrf-monotonic instance created and configured");
         // We do not start the counter here, it is started in `reset`.
         NrfMonotonic {
             timer: instance,
@@ -94,7 +98,7 @@ impl<INSTANCE: Instance> Clock for NrfMonotonic<INSTANCE> {
             compiler_fence(Ordering::SeqCst); // is this even needed
             t0.cc[Self::CC_NOW].read().bits()
         };
-        defmt::trace!("Clock::try_now={}", cnt);
+        trace!("Clock::try_now={}", cnt);
         Ok(Instant::new(cnt as u64 | self.ovf))
     }
 }
@@ -132,13 +136,13 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             // start the timer
             t0.tasks_start.write(|w| w.tasks_start().set_bit());
         }
-        defmt::info!("nrf-monotonic reset and started");
+        info!("nrf-monotonic reset and started");
     }
 
     fn set_compare(&mut self, val: &Instant<Self>) {
         let dur = *val.duration_since_epoch().integer();
 
-        defmt::trace!("Set Compare to {}", dur);
+        trace!("Set Compare to {}", dur);
         self.timer.as_timer0().cc[0]
             .write(|w| unsafe { w.cc().bits((dur & u32::MAX as u64) as u32) });
     }
@@ -147,7 +151,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         if self.is_compare_match() {
             self.clear_compare_match_flag();
             self.timer.as_timer0().cc[0].reset();
-            defmt::debug!("Compare flag cleared");
+            debug!("Compare flag cleared");
         }
     }
 
@@ -156,7 +160,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         if self.is_overflow() {
             self.clear_overflow_flag();
             self.ovf += 0x1_0000_0000u64;
-            defmt::debug!("Overflow, flag: {:x}", self.ovf);
+            debug!("Overflow, flag: {:x}", self.ovf);
         }
     }
 }
