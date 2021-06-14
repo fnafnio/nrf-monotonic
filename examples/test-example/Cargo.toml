@@ -42,7 +42,7 @@ optional = true
 
 
 # set logging levels here
-default = ["defmt-info", "52840", "nrf-monotonic/defmt-debug"] # "dependency-a/defmt-trace",
+default = ["defmt-trace", "52840", "nrf-monotonic/defmt-trace"] # "dependency-a/defmt-trace",
 
 # do NOT modify these features
 defmt-default = []

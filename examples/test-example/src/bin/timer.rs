@@ -1,7 +1,7 @@
 #![no_main]
 #![no_std]
 
-use core::sync::atomic::{AtomicUsize, Ordering};
+// use core::sync::atomic::{AtomicUsize, Ordering};
 use rtic::app;
 
 #[cfg(feature = "51")]
@@ -22,9 +22,16 @@ use nrf52840_hal as hal;
 use defmt_rtt as _;
 use panic_probe as _;
 
-static COUNT: AtomicUsize = AtomicUsize::new(0);
-defmt::timestamp!("{=usize}", COUNT.fetch_add(1, Ordering::Relaxed));
+// static COUNT: AtomicUsize = AtomicUsize::new(0);
+// defmt::timestamp!("{=usize}", COUNT.fetch_add(1, Ordering::Relaxed));
 
+defmt::timestamp!("{=u64:µs}", { get_time_from_rtic() });
+
+fn get_time_from_rtic() -> u64 {
+    use rtic::rtic_monotonic::Instant;
+    let t: Instant<_> = app::monotonics::now();
+    *t.duration_since_epoch().integer()
+}
 #[app(device = crate::hal::pac, dispatchers = [PWM0])]
 mod app {
     use crate::hal;

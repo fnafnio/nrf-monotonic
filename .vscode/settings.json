@@ -1,0 +1,4 @@
+{
+    "rust-analyzer.cargo.features": ["52840", "defmt-debug", "defmt-impl"],
+    "rust-analyzer.checkOnSave.features": ["52840", "defmt-debug", "defmt-impl"],
+}
