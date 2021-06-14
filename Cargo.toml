@@ -1,6 +1,6 @@
 [package]
 name = "nrf-monotonic"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Fabio Pungg <fabiopungg@gmail.com>"]
 
 
