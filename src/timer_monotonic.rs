@@ -99,7 +99,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             // prepare compare registers
             t0.cc[0].reset();
             t0.cc[1].reset();
-            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX) }); // so we have an explicit overflow
+            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX >> 1) }); // so we have an explicit overflow
             t0.cc[3].reset();
 
             // disable unneeded interrupts
@@ -121,7 +121,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
 
         trace!("Set Compare to {}", dur);
         self.timer.as_timer0().cc[0]
-            .write(|w| unsafe { w.cc().bits((dur & u32::MAX as u64) as u32) });
+            .write(|w| unsafe { w.cc().bits(((dur + 100) & (u32::MAX >> 1) as u64) as u32) });
     }
 
     fn clear_compare_flag(&mut self) {
@@ -136,7 +136,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         // self.clear_compare_flag();
         if self.is_overflow() {
             self.clear_overflow_flag();
-            self.ovf += 0x1_0000_0000u64;
+            self.ovf += 0x0_1000_0000u64;
             debug!("Overflow, flag: {:x}", self.ovf);
         }
     }
