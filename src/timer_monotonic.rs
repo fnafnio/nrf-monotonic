@@ -15,6 +15,8 @@ pub struct NrfMonotonic<INSTANCE: Instance> {
 }
 
 impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
+    const OVFLOW_REGISTER: u32 = u32::MAX >> 1;
+    const OVFLOW_INCREMENT: u64 = (Self::OVFLOW_REGISTER as u64) + 1;
     /// Enable the Timer Instance and provide a new `Monotonic` based on this timer
     /// This Monotonic timer is fixed at 1MHz
     const CC_COMPARE: usize = 0;
@@ -99,8 +101,10 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             // prepare compare registers
             t0.cc[0].reset();
             t0.cc[1].reset();
-            t0.cc[2].write(|w| unsafe { w.bits(u32::MAX >> 1) }); // so we have an explicit overflow
+            t0.cc[2].write(|w| unsafe { w.bits(Self::OVFLOW_REGISTER) }); // so we have an explicit overflow
             t0.cc[3].reset();
+
+            t0.shorts.write(|w| w.compare2_clear().set_bit());
 
             // disable unneeded interrupts
             t0.intenclr
@@ -113,22 +117,24 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             // start the timer
             t0.tasks_start.write(|w| w.tasks_start().set_bit());
         }
-        // info!("nrf-monotonic reset and started");
     }
 
     fn set_compare(&mut self, val: &Instant<Self>) {
-        let dur = *val.duration_since_epoch().integer();
+        let dur = val.duration_since_epoch().integer();
+        let dur = dur + 10;
 
-        trace!("Set Compare to {}", dur);
+        // if dur > Self::OVFLOW_INCREMENT {
+        //     debug!("Set Compare to {:010x}", dur);
+        // }
         self.timer.as_timer0().cc[0]
-            .write(|w| unsafe { w.cc().bits(((dur + 100) & (u32::MAX >> 1) as u64) as u32) });
+            .write(|w| unsafe { w.cc().bits((dur & (Self::OVFLOW_REGISTER) as u64) as u32) });
     }
 
     fn clear_compare_flag(&mut self) {
         if self.is_compare_match() {
             self.clear_compare_match_flag();
             // self.timer.as_timer0().cc[0].reset();
-            debug!("Compare flag cleared");
+            trace!("Compare flag cleared");
         }
     }
 
@@ -136,7 +142,7 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         // self.clear_compare_flag();
         if self.is_overflow() {
             self.clear_overflow_flag();
-            self.ovf += 0x0_1000_0000u64;
+            self.ovf += Self::OVFLOW_INCREMENT;
             debug!("Overflow, flag: {:x}", self.ovf);
         }
     }

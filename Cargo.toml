@@ -16,31 +16,31 @@ name = "nrf_monotonic"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cortex-m = "0.7.2"
-rtic-monotonic = "0.1.0-alpha.1"
+cortex-m = "0.7.3"
+rtic-monotonic = "0.1.0-alpha.2"
 
 [dependencies.defmt]
-version = "0.2.2"
+version = "0.2.3"
 optional = true
 
 [dependencies.nrf52810-hal]
-version = "0.12.2"
+version = "0.13.0"
 optional = true
 
 [dependencies.nrf52811-hal]
-version = "0.12.2"
+version = "0.13.0"
 optional = true
 
 [dependencies.nrf52832-hal]
-version = "0.12.2"
+version = "0.13.0"
 optional = true
 
 [dependencies.nrf52833-hal]
-version = "0.12.2"
+version = "0.13.0"
 optional = true
 
 [dependencies.nrf52840-hal]
-version = "0.12.2"
+version = "0.13.0"
 optional = true
 
 
