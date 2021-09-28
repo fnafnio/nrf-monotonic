@@ -17,30 +17,30 @@ name = "nrf_monotonic"
 
 [dependencies]
 cortex-m = "0.7.3"
-rtic-monotonic = "0.1.0-alpha.2"
+rtic-monotonic = "0.1.0-rc.1"
 
 [dependencies.defmt]
 version = "0.2.3"
 optional = true
 
 [dependencies.nrf52810-hal]
-version = "0.13.0"
+version = "0.14.0"
 optional = true
 
 [dependencies.nrf52811-hal]
-version = "0.13.0"
+version = "0.14.0"
 optional = true
 
 [dependencies.nrf52832-hal]
-version = "0.13.0"
+version = "0.14.0"
 optional = true
 
 [dependencies.nrf52833-hal]
-version = "0.13.0"
+version = "0.14.0"
 optional = true
 
 [dependencies.nrf52840-hal]
-version = "0.13.0"
+version = "0.14.0"
 optional = true
 
 
