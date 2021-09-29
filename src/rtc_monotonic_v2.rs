@@ -100,8 +100,8 @@ impl<RTC: RtcInstance> Monotonic for RtcMono<RTC> {
 
             self.rtc.evtenset.write(|w| {
                 w.compare0()
-                    .set_bit()
-                    .compare3()
+                    // .set_bit()
+                    // .compare3()
                     .set_bit()
                     .ovrflw()
                     .set_bit()
@@ -119,9 +119,9 @@ impl<RTC: RtcInstance> Monotonic for RtcMono<RTC> {
         // let now = self.try_now().unwrap();
         // let dur = instant.checked_duration_since(&now);
         let dur = instant.duration_since_epoch();
-        let ticks = *dur.integer();
+        let ticks = dur.integer();
         trace!("ticks: {}", ticks);
-        self.rtc.cc[0].write(|w| unsafe { w.bits(((ticks + 3) as u32) & 0x00FF_FFFF) })
+        self.rtc.cc[0].write(|w| unsafe { w.bits(((ticks + 5) as u32) & 0x00FF_FFFF) })
     }
 
     fn clear_compare_flag(&mut self) {
