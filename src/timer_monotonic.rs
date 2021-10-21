@@ -3,7 +3,7 @@
 /// The frequency is fixed at 1MHz
 use crate::hal;
 use core::sync::atomic::{compiler_fence, Ordering};
-use hal::timer::Instance;
+use hal::{pac::timer0::RegisterBlock as TimerRegister, timer::Instance};
 use rtic_monotonic::{
     embedded_time::{clock::Error, fraction::Fraction},
     Clock, Instant, Monotonic,
@@ -26,11 +26,12 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
         {
             // set up the peripheral
             let t0 = instance.as_timer0();
+
             t0.mode.write(|w| w.mode().timer());
             t0.bitmode.write(|w| w.bitmode()._32bit());
-            // 1MHz
             t0.prescaler.write(|w| unsafe { w.prescaler().bits(4) });
-            t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
+
+            start_timer0(t0);
         }
         // info!("nrf-monotonic instance created and configured");
         // We do not start the counter here, it is started in `reset`.
@@ -40,6 +41,7 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
         }
     }
 
+    #[inline(always)]
     fn is_overflow(&self) -> bool {
         self.timer.as_timer0().events_compare[Self::CC_OVERFLOW]
             .read()
@@ -47,6 +49,7 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
             .bit()
     }
 
+    #[inline(always)]
     fn is_compare_match(&self) -> bool {
         self.timer.as_timer0().events_compare[Self::CC_COMPARE]
             .read()
@@ -54,15 +57,31 @@ impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
             .bit()
     }
 
+    #[inline(always)]
     fn clear_overflow_flag(&self) {
         self.timer.as_timer0().events_compare[Self::CC_OVERFLOW]
             .write(|w| w.events_compare().clear_bit());
     }
 
+    #[inline(always)]
     fn clear_compare_match_flag(&self) {
         self.timer.as_timer0().events_compare[Self::CC_COMPARE]
             .write(|w| w.events_compare().clear_bit());
     }
+}
+
+#[inline(always)]
+fn start_timer0(t0: &TimerRegister) {
+    t0.tasks_stop.write(|w| w.tasks_stop().set_bit());
+    t0.tasks_clear.write(|w| w.tasks_clear().set_bit());
+    enable_interrupts(t0);
+    t0.tasks_start.write(|w| w.tasks_start().set_bit());
+}
+
+#[inline(always)]
+fn stop_timer0(t0: &TimerRegister) {
+    disable_interrupts(t0);
+    t0.tasks_stop.write(|w| w.tasks_stop().set_bit());
 }
 
 impl<INSTANCE: Instance> Clock for NrfMonotonic<INSTANCE> {
@@ -107,12 +126,10 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             t0.shorts.write(|w| w.compare2_clear().set_bit());
 
             // disable unneeded interrupts
-            t0.intenclr
-                .write(|w| w.compare1().set_bit().compare3().set_bit());
+            disable_interrupts(t0);
 
             // enable copmare match and overflow interrupts
-            t0.intenset
-                .write(|w| w.compare0().set_bit().compare2().set_bit());
+            enable_interrupts(t0);
 
             // start the timer
             t0.tasks_start.write(|w| w.tasks_start().set_bit());
@@ -123,9 +140,6 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         let dur = val.duration_since_epoch().integer();
         let dur = dur + 10;
 
-        // if dur > Self::OVFLOW_INCREMENT {
-        //     debug!("Set Compare to {:010x}", dur);
-        // }
         self.timer.as_timer0().cc[0]
             .write(|w| unsafe { w.cc().bits((dur & (Self::OVFLOW_REGISTER) as u64) as u32) });
     }
@@ -146,4 +160,32 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             debug!("Overflow, flag: {:x}", self.ovf);
         }
     }
+
+    fn enable_timer(&mut self) {
+        {
+            let t0 = self.timer.as_timer0();
+            start_timer0(t0);
+            enable_interrupts(t0);
+        }
+    }
+
+    fn disable_timer(&mut self) {
+        {
+            let t0 = self.timer.as_timer0();
+            disable_interrupts(t0);
+            stop_timer0(t0);
+        }
+    }
+}
+
+#[inline(always)]
+fn disable_interrupts(t0: &TimerRegister) {
+    t0.intenclr
+        .write(|w| w.compare1().set_bit().compare3().set_bit());
+}
+
+#[inline(always)]
+fn enable_interrupts(t0: &TimerRegister) {
+    t0.intenset
+        .write(|w| w.compare0().set_bit().compare2().set_bit());
 }
