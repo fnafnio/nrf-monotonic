@@ -23,6 +23,8 @@ mod fmt_helpers;
 mod timer_monotonic;
 pub use timer_monotonic::NrfMonotonic;
 
+pub use fugit::MillisDurationU32 as Milliseconds;
+
 // mod rtc_monotonic;
 // pub use rtc_monotonic::RtcMonotonic;
 

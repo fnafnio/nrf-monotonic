@@ -3,16 +3,16 @@
 /// The frequency is fixed at 1MHz
 use crate::hal;
 use core::sync::atomic::{compiler_fence, Ordering};
-use fugit::Duration;
 use hal::{pac::timer0::RegisterBlock as TimerRegister, timer::Instance};
 use rtic_monotonic::Monotonic;
+pub const TIMER_HZ: u32 = 1_000_000;
 
-pub struct NrfMonotonic<INSTANCE: Instance, const TIMER_HZ: u32> {
+pub struct NrfMonotonic<INSTANCE: Instance> {
     timer: INSTANCE,
     ovf: u64,
 }
 
-impl<INSTANCE: Instance, const TIMER_HZ: u32> NrfMonotonic<INSTANCE, TIMER_HZ> {
+impl<INSTANCE: Instance> NrfMonotonic<INSTANCE> {
     const OVFLOW_REGISTER: u32 = u32::MAX >> 1;
     const OVFLOW_INCREMENT: u64 = (Self::OVFLOW_REGISTER as u64) + 1;
     /// Enable the Timer Instance and provide a new `Monotonic` based on this timer
@@ -82,7 +82,7 @@ fn stop_timer0(t0: &TimerRegister) {
     t0.tasks_stop.write(|w| w.tasks_stop().set_bit());
 }
 
-impl<INSTANCE: Instance, const TIMER_HZ: u32> Monotonic for NrfMonotonic<INSTANCE, TIMER_HZ> {
+impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
     const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
 
     unsafe fn reset(&mut self) {
@@ -162,8 +162,8 @@ impl<INSTANCE: Instance, const TIMER_HZ: u32> Monotonic for NrfMonotonic<INSTANC
         }
     }
 
-    type Instant = fugit::TimerInstantU32<TIMER_HZ>;
-    type Duration = fugit::TimerDurationU32<TIMER_HZ>;
+    type Instant = fugit::TimerInstantU32<{TIMER_HZ}>;
+    type Duration = fugit::TimerDurationU32<{TIMER_HZ}>;
 
     fn now(&mut self) -> Self::Instant {
         let cnt = {
