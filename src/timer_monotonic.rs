@@ -4,10 +4,8 @@
 use crate::hal;
 use core::sync::atomic::{compiler_fence, Ordering};
 use hal::{pac::timer0::RegisterBlock as TimerRegister, timer::Instance};
-use rtic_monotonic::{
-    embedded_time::{clock::Error, fraction::Fraction},
-    Clock, Instant, Monotonic,
-};
+use rtic_monotonic::Monotonic;
+pub const TIMER_HZ: u32 = 1_000_000;
 
 pub struct NrfMonotonic<INSTANCE: Instance> {
     timer: INSTANCE,
@@ -84,23 +82,6 @@ fn stop_timer0(t0: &TimerRegister) {
     t0.tasks_stop.write(|w| w.tasks_stop().set_bit());
 }
 
-impl<INSTANCE: Instance> Clock for NrfMonotonic<INSTANCE> {
-    type T = u64;
-
-    const SCALING_FACTOR: Fraction = Fraction::new(1, 1_000_000);
-
-    fn try_now(&self) -> Result<Instant<Self>, Error> {
-        let cnt = {
-            let t0 = self.timer.as_timer0();
-            t0.tasks_capture[Self::CC_NOW].write(|w| w.tasks_capture().set_bit());
-            compiler_fence(Ordering::SeqCst); // is this even needed
-            t0.cc[Self::CC_NOW].read().bits()
-        };
-        trace!("Clock::try_now={}", cnt);
-        Ok(Instant::new(cnt as u64 | self.ovf))
-    }
-}
-
 impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
     const DISABLE_INTERRUPT_ON_EMPTY_QUEUE: bool = false;
 
@@ -136,18 +117,22 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         }
     }
 
-    fn set_compare(&mut self, val: &Instant<Self>) {
-        let dur = val.duration_since_epoch().integer();
-        let dur = dur + 10;
+    fn set_compare(&mut self, val: Self::Instant) {
+        let now = self.now();
+        let max = u32::MAX;
+
+        let dur = match val.checked_duration_since(now) {
+            None => 1, // in the past
+            Some(x) => max.min(x.ticks()).max(1),
+        };
 
         self.timer.as_timer0().cc[0]
-            .write(|w| unsafe { w.cc().bits((dur & (Self::OVFLOW_REGISTER) as u64) as u32) });
+            .write(|w| unsafe { w.cc().bits((dur & (Self::OVFLOW_REGISTER)) as u32) });
     }
 
     fn clear_compare_flag(&mut self) {
         if self.is_compare_match() {
             self.clear_compare_match_flag();
-            // self.timer.as_timer0().cc[0].reset();
             trace!("Compare flag cleared");
         }
     }
@@ -175,6 +160,19 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
             disable_interrupts(t0);
             stop_timer0(t0);
         }
+    }
+
+    type Instant = fugit::TimerInstantU32<{ TIMER_HZ }>;
+    type Duration = fugit::TimerDurationU32<{ TIMER_HZ }>;
+
+    fn now(&mut self) -> Self::Instant {
+        let t0 = self.timer.as_timer0();
+        t0.tasks_capture[Self::CC_NOW].write(|w| w.tasks_capture().set_bit());
+        Self::Instant::from_ticks(t0.cc[Self::CC_NOW].read().bits())
+    }
+
+    fn zero() -> Self::Instant {
+        Self::Instant::from_ticks(0)
     }
 }
 
