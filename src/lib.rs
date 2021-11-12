@@ -23,7 +23,14 @@ mod fmt_helpers;
 mod timer_monotonic;
 pub use timer_monotonic::NrfMonotonic;
 
-pub use fugit::MillisDurationU32 as Milliseconds;
+pub use fugit::{
+    MicrosDurationU32 as Microseconds, MillisDurationU32 as Milliseconds,
+    SecsDurationU32 as Seconds,
+    ExtU32 as TimeExtension
+};
+
+mod since_epoch_monotonic;
+pub use since_epoch_monotonic::MonoTimer;
 
 // mod rtc_monotonic;
 // pub use rtc_monotonic::RtcMonotonic;

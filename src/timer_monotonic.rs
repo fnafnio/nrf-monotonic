@@ -162,18 +162,13 @@ impl<INSTANCE: Instance> Monotonic for NrfMonotonic<INSTANCE> {
         }
     }
 
-    type Instant = fugit::TimerInstantU32<{TIMER_HZ}>;
-    type Duration = fugit::TimerDurationU32<{TIMER_HZ}>;
+    type Instant = fugit::TimerInstantU32<{ TIMER_HZ }>;
+    type Duration = fugit::TimerDurationU32<{ TIMER_HZ }>;
 
     fn now(&mut self) -> Self::Instant {
-        let cnt = {
-            let t0 = self.timer.as_timer0();
-            t0.tasks_capture[Self::CC_NOW].write(|w| w.tasks_capture().set_bit());
-            compiler_fence(Ordering::SeqCst); // is this even needed?
-            t0.cc[Self::CC_NOW].read().bits()
-        };
-        trace!("Clock::try_now={}", cnt);
-        Self::Instant::from_ticks(cnt)
+        let t0 = self.timer.as_timer0();
+        t0.tasks_capture[Self::CC_NOW].write(|w| w.tasks_capture().set_bit());
+        Self::Instant::from_ticks(t0.cc[Self::CC_NOW].read().bits())
     }
 
     fn zero() -> Self::Instant {
