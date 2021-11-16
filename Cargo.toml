@@ -21,7 +21,7 @@ rtic-monotonic = "0.1.0-rc.2"
 fugit = "0.3.0"
 
 [dependencies.defmt]
-version = "0.2.3"
+version = "0.3.0"
 optional = true
 
 [dependencies.nrf52810-hal]
