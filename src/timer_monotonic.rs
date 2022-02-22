@@ -2,7 +2,6 @@
 ///
 /// The frequency is fixed at 1MHz
 use crate::hal;
-use core::sync::atomic::{compiler_fence, Ordering};
 use hal::{pac::timer0::RegisterBlock as TimerRegister, timer::Instance};
 use rtic_monotonic::Monotonic;
 pub const TIMER_HZ: u32 = 1_000_000;
